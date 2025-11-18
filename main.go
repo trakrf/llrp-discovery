@@ -59,9 +59,9 @@ func main() {
 	log.Printf("Starting LLRP Discovery Service")
 	log.Printf("Configuration: %+v", config)
 
-	// Setup HTTP handlers
-	http.HandleFunc("/discover", handleDiscover)
-	http.HandleFunc("/health", handleHealth)
+	// Setup HTTP handlers with CORS
+	http.HandleFunc("/discover", corsMiddleware(handleDiscover))
+	http.HandleFunc("/health", corsMiddleware(handleHealth))
 
 	// Start HTTP server
 	addr := ":" + config.HTTPPort
@@ -200,6 +200,24 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// corsMiddleware adds CORS headers to allow cross-origin requests
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Allow all origins for discovery service
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

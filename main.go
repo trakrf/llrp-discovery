@@ -72,10 +72,27 @@ func main() {
 }
 
 func loadConfig() Config {
-	subnetsStr := getEnv("SUBNETS", "192.168.1.0/24")
-	subnets := strings.Split(subnetsStr, ",")
-	for i := range subnets {
-		subnets[i] = strings.TrimSpace(subnets[i])
+	var subnets []string
+
+	// Check if SUBNETS env var is set
+	subnetsStr := os.Getenv("SUBNETS")
+	if subnetsStr != "" {
+		// Use manually configured subnets
+		subnets = strings.Split(subnetsStr, ",")
+		for i := range subnets {
+			subnets[i] = strings.TrimSpace(subnets[i])
+		}
+		log.Printf("Using configured subnets: %v", subnets)
+	} else {
+		// Auto-detect network interfaces
+		detected, err := detectNetworkSubnets()
+		if err != nil {
+			log.Printf("Failed to auto-detect network subnets: %v, using default", err)
+			subnets = []string{"192.168.1.0/24"}
+		} else {
+			subnets = detected
+			log.Printf("Auto-detected subnets: %v", subnets)
+		}
 	}
 
 	asyncLimit, _ := strconv.Atoi(getEnv("ASYNC_LIMIT", "1000"))
@@ -90,6 +107,92 @@ func loadConfig() Config {
 		HTTPPort:          getEnv("HTTP_PORT", "8080"),
 		MaxDurationSeconds: maxDurationSeconds,
 	}
+}
+
+// detectNetworkSubnets discovers all non-loopback IPv4 subnets on the host
+func detectNetworkSubnets() ([]string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	// Common Docker bridge networks to skip
+	dockerNetworks := []string{
+		"172.17.0.0/16", // Default Docker bridge
+		"172.18.0.0/16", // Additional Docker networks
+		"172.19.0.0/16",
+		"172.20.0.0/16",
+	}
+
+	var subnets []string
+	for _, iface := range interfaces {
+		// Skip loopback and down interfaces
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		// Skip common Docker bridge interface names
+		if strings.HasPrefix(iface.Name, "docker") || strings.HasPrefix(iface.Name, "br-") {
+			log.Printf("Skipping Docker bridge interface: %s", iface.Name)
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			log.Printf("Failed to get addresses for interface %s: %v", iface.Name, err)
+			continue
+		}
+
+		for _, addr := range addrs {
+			// Check if it's an IP network
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			// Only process IPv4 addresses
+			if ipNet.IP.To4() == nil {
+				continue
+			}
+
+			// Skip link-local addresses (169.254.0.0/16)
+			if ipNet.IP.IsLinkLocalUnicast() {
+				continue
+			}
+
+			// Skip Docker bridge networks
+			if isDockerNetwork(ipNet, dockerNetworks) {
+				log.Printf("Skipping Docker network: %s", ipNet.String())
+				continue
+			}
+
+			// Add the network CIDR
+			subnet := ipNet.String()
+			subnets = append(subnets, subnet)
+			log.Printf("Detected interface %s with subnet %s", iface.Name, subnet)
+		}
+	}
+
+	if len(subnets) == 0 {
+		return nil, fmt.Errorf("no suitable network interfaces found")
+	}
+
+	return subnets, nil
+}
+
+// isDockerNetwork checks if an IP network overlaps with known Docker networks
+func isDockerNetwork(ipNet *net.IPNet, dockerNetworks []string) bool {
+	for _, dockerCIDR := range dockerNetworks {
+		_, dockerNet, err := net.ParseCIDR(dockerCIDR)
+		if err != nil {
+			continue
+		}
+		// Check if this network is contained within or overlaps with a Docker network
+		if dockerNet.Contains(ipNet.IP) {
+			return true
+		}
+	}
+	return false
 }
 
 func getEnv(key, defaultValue string) string {

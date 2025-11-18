@@ -34,8 +34,8 @@ RUN adduser -D -u 1000 llrp
 USER llrp
 
 # Set default environment variables
-ENV SUBNETS="192.168.1.0/24" \
-    ASYNC_LIMIT="1000" \
+# SUBNETS auto-detects from host network interfaces if not set
+ENV ASYNC_LIMIT="1000" \
     TIMEOUT_SECONDS="5" \
     SCAN_PORT="5084" \
     HTTP_PORT="8080" \

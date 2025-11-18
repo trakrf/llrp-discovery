@@ -4,6 +4,7 @@ A lightweight Go service for discovering LLRP-compatible RFID readers on a netwo
 
 ## Features
 
+- **Auto-Detection**: Automatically discovers host network interfaces and subnets (no configuration needed!)
 - **CIDR Subnet Scanning**: Scan entire network ranges using CIDR notation (e.g., `192.168.1.0/24`)
 - **Parallel Probing**: Concurrent network scanning with configurable limits
 - **LLRP Protocol**: Validates LLRP connectivity on port 5084
@@ -16,8 +17,13 @@ A lightweight Go service for discovering LLRP-compatible RFID readers on a netwo
 ### Docker
 
 ```bash
-docker run -p 8080:8080 \
-  -e SUBNETS="192.168.1.0/24" \
+# Auto-detect host network (requires host networking)
+docker run --network host \
+  ghcr.io/trakrf/llrp-discovery:latest
+
+# Or manually specify subnets
+docker run --network host \
+  -e SUBNETS="192.168.1.0/24,10.0.0.0/24" \
   ghcr.io/trakrf/llrp-discovery:latest
 ```
 
@@ -86,12 +92,14 @@ All configuration via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SUBNETS` | `192.168.1.0/24` | Comma-separated CIDR subnet list |
+| `SUBNETS` | *auto-detect* | Comma-separated CIDR subnet list (auto-detects from host interfaces if not set) |
 | `ASYNC_LIMIT` | `1000` | Maximum concurrent network probes |
 | `TIMEOUT_SECONDS` | `5` | Timeout per IP probe (seconds) |
 | `SCAN_PORT` | `5084` | LLRP port to scan |
 | `HTTP_PORT` | `8080` | HTTP API port |
 | `MAX_DURATION_SECONDS` | `300` | Maximum discovery duration (5 minutes) |
+
+**Note:** When `SUBNETS` is not set, the service automatically detects all non-loopback IPv4 network interfaces on the host and scans their subnets. This requires `network_mode: host` in Docker.
 
 ## Use with TrakRF Keypr
 

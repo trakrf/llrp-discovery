@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+NOTICE
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Binaries
+llrp-discovery

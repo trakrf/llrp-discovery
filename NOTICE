@@ -1,0 +1,11 @@
+LLRP Discovery Service
+Copyright 2025 TrakRF
+
+This product includes software developed by the EdgeX Foundry project
+(https://github.com/edgexfoundry/device-rfid-llrp-go)
+Copyright 2020 Intel Corporation
+Licensed under the Apache License, Version 2.0
+
+The discovery algorithm and network scanning logic in this project
+are derived from the EdgeX Foundry device-rfid-llrp-go service,
+specifically from internal/driver/discover.go.

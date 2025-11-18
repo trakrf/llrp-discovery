@@ -1,0 +1,20 @@
+services:
+  llrp-discovery:
+    build: .
+    image: ghcr.io/trakrf/llrp-discovery:latest
+    # Use host networking to scan the host's network
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - SUBNETS=192.168.1.0/24
+      - ASYNC_LIMIT=1000
+      - TIMEOUT_SECONDS=5
+      - SCAN_PORT=5084
+      - HTTP_PORT=8080
+      - MAX_DURATION_SECONDS=300
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
